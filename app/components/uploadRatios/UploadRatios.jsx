@@ -8,13 +8,14 @@ import { MdCloudUpload } from "react-icons/md";
 
 const UploadRatios = () => {
   const [excelFile, setExcelFile] = useState(null);
-  const [extractedData, setExtractedData] = useState([]);
-  const [netPosition, setNetPosition] = useState(null);
-  const [activities, setActivities] = useState(null);
-  const [balanceSheet, setBalanceSheet] = useState(null);
-  const [revenues, setRevenues] = useState(null);
+  // const [extractedData, setExtractedData] = useState([]);
+  // const [netPosition, setNetPosition] = useState(null);
+  // const [activities, setActivities] = useState(null);
+  // const [balanceSheet, setBalanceSheet] = useState(null);
+  // const [revenues, setRevenues] = useState(null);
   // const [searchTerm, setSearchTerm] = useState("");
   const [searchResult, setSearchResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [selectedRowIdArray, setSelectedRowIdArray] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
@@ -27,6 +28,13 @@ const UploadRatios = () => {
   };
 
   const handleExcelFileData = async () => {
+    setIsLoading(true);
+
+    let netPosition;
+    let activities;
+    let balanceSheet;
+    let revenues;
+
     if (excelFile) {
       const reader = new FileReader();
 
@@ -45,40 +53,45 @@ const UploadRatios = () => {
           // To convert to arrary of objects
           const header = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0];
           const jsonData = XLSX.utils.sheet_to_json(sheet, { header: header });
-
+          console.log("sheetName", sheetName);
           let data = {};
           data.sheetName = sheetName;
           data.data = jsonData.map((row) => ({ id: uuidv4({ encoding: "base62" }), ...row }));
 
           switch (sheetName) {
             case "Net Position":
-              setNetPosition(data);
+              netPosition = data;
               break;
             case "Activities":
-              setActivities(data);
+              activities = data;
               break;
             case "Balance Sheet":
-              setBalanceSheet(data);
+              balanceSheet = data;
               break;
             case "Revenues":
-              setRevenues(data);
+              revenues = data;
               break;
           }
         });
+        handleSearch(netPosition, activities, balanceSheet, revenues);
       };
 
       reader.readAsBinaryString(excelFile);
-
-      // handleSearch();
     } else {
       console.log("No file selected");
+      setIsLoading(false);
     }
   };
 
-  const handleSearch = () => {
-    // e.preventDefault();
+  const handleSearch = (netPosition, activities, balanceSheet, revenues) => {
+    setIsLoading(true);
     setSearchResult(null);
     setSelectedRowId(null);
+
+    console.log("netposition", netPosition);
+    console.log("activities", activities);
+    console.log("balanceSheet", balanceSheet);
+    console.log("revenues", revenues);
 
     const GLOSSARY = {
       "Net Position": [
@@ -92,7 +105,7 @@ const UploadRatios = () => {
         "Unrestricted Net Position",
         "Unrestricted",
       ],
-      Activities: ["Expenses", "Total Primary Gov ernment", "Primary Government"],
+      Activities: ["Expenses", "Total Primary Government", "Primary Government"],
       "Balance Sheet": [
         "Fund Balance-Committed",
         "Fund Balance-Assigned",
@@ -115,6 +128,7 @@ const UploadRatios = () => {
         "Debt Service: Interest",
         "Debt Service: Other charges",
         "Principal retirement",
+        "Principal",
         "Interest",
         "Interest and other charges",
         "Other charges",
@@ -127,32 +141,6 @@ const UploadRatios = () => {
         "Commonwealth",
       ],
     };
-    // const GLOSSARY = {
-    //   "Net Position": [
-    //     "cash",
-    //     "Investments",
-    //     "Total Liabilities",
-    //     "Pension / Net Pension Liability",
-    //     "OPEB / Net OPEB Liability",
-    //     "Unrestricted Net Position",
-    //   ],
-    //   Activities: ["Expenses"],
-    //   "Balance Sheet": [
-    //     "Fund Balance-Committed",
-    //     "Fund Balance-Assigned",
-    //     "Fund Balance-Unassigned",
-    //     "Total Fund Balances (Unrestricted Reserves)",
-    //   ],
-    //   Revenues: [
-    //     "Total Expenditures",
-    //     "Total Revenues",
-    //     "Debt Service:  Principal retirement",
-    //     "Debt Service:  Interest",
-    //     "Debt Service: Other charges",
-    //     "Intergovernmental Revenue: Federal",
-    //     "Intergovernmental Revenue: State or Commonwealth",
-    //   ],
-    // };
 
     let matchingData = [];
 
@@ -161,174 +149,95 @@ const UploadRatios = () => {
     const balanceSheetTerms = GLOSSARY["Balance Sheet"];
     const revenuesTerms = GLOSSARY["Revenues"];
 
-    const netPositionPatterns = netPositionTerms.map(prepareRegexPattern);
-    const activitiesPatterns = activitiesTerms.map(prepareRegexPattern);
-    const balanceSheetPatterns = balanceSheetTerms.map(prepareRegexPattern);
-    const revenuesPatterns = revenuesTerms.map(prepareRegexPattern);
+    const netPositionPatterns = prepareRegexPattern(netPositionTerms);
+    const activitiesPatterns = prepareRegexPattern(activitiesTerms);
+    const balanceSheetPatterns = prepareRegexPattern(balanceSheetTerms);
+    const revenuesPatterns = prepareRegexPattern(revenuesTerms);
 
     const uniqueIdsSet = new Set();
 
     // Net position search
-    // for (let searchTerm of netPositionTerms) {
-    //   let rows = netPosition.data;
-    //   let sheetName = netPosition.sheetName;
+    for (const row of netPosition?.data) {
+      // const isMatch = Object.values(row).some((value) => activitiesPatterns.test(value.toString()));
 
-    //   const pattern = prepareRegexPattern(searchTerm);
+      const isMatch = netPositionPatterns.some((pattern) =>
+        Object.values(row).some((value) => pattern.test(value.toString().replace(/\s/g, "")))
+      );
 
-    //   for (let row of rows) {
-    //     let isMatch = Object.values(row).some((value) => {
-    //       return pattern.test(value);
-    //     });
+      if (isMatch) {
+        if (!uniqueIdsSet.has(row.id)) {
+          uniqueIdsSet.add(row.id);
 
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
-
-    //         const newItem = { sheet: sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
-    // for (const pattern of netPositionPatterns) {
-    //   for (const row of netPosition.data) {
-    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
-
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
-
-    //         const newItem = { sheet: netPosition.sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
+          const newItem = { sheet: netPosition.sheetName, ...row };
+          matchingData.push(newItem);
+        }
+      }
+    }
 
     // Activities search
-    // for (let searchTerm of activitiesTerms) {
-    //   let rows = activities.data;
+    for (const row of activities?.data) {
+      // const isMatch = Object.values(row).some((value) => activitiesPatterns.test(value.toString()));
 
-    //   let sheetName = activities.sheetName;
+      const isMatch = activitiesPatterns.some((pattern) =>
+        Object.values(row).some((value) => pattern.test(value.toString().replace(/\s/g, "")))
+      );
 
-    //   const pattern = prepareRegexPattern(searchTerm);
+      if (isMatch) {
+        if (!uniqueIdsSet.has(row.id)) {
+          uniqueIdsSet.add(row.id);
 
-    //   for (let row of rows) {
-    //     let isMatch = Object.values(row).some((value) => {
-    //       return pattern.test(value);
-    //     });
-
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
-
-    //         const newItem = { sheet: sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
-    // for (const pattern of activitiesPatterns) {
-    //   for (const row of activities.data) {
-    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
-
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
-
-    //         const newItem = { sheet: activities.sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
+          const newItem = { sheet: activities.sheetName, ...row };
+          matchingData.push(newItem);
+        }
+      }
+    }
 
     // Balance sheet search
-    // for (let searchTerm of balanceSheetTerms) {
-    //   let rows = activities.data;
-    //   console.log("searchTerm", searchTerm);
+    for (const row of balanceSheet?.data) {
+      // const isMatch = Object.values(row).some((value) => activitiesPatterns.test(value.toString()));
 
-    //   let sheetName = balanceSheet.sheetName;
+      const isMatch = balanceSheetPatterns.some((pattern) =>
+        Object.values(row).some((value) => pattern.test(value.toString().replace(/\s/g, "")))
+      );
 
-    //   const pattern = prepareRegexPattern(searchTerm);
+      if (isMatch) {
+        if (!uniqueIdsSet.has(row.id)) {
+          uniqueIdsSet.add(row.id);
 
-    //   for (let row of rows) {
-    //     // console.log("row", row);
-    //     let isMatch = Object.values(row).some((value) => {
-    //       return pattern.test(value);
-    //     });
-
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
-
-    //         const newItem = { sheet: sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
-    // for (const pattern of balanceSheetPatterns) {
-    //   for (const row of balanceSheet.data) {
-    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
-
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
-
-    //         const newItem = { sheet: balanceSheet.sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
+          const newItem = { sheet: balanceSheet.sheetName, ...row };
+          matchingData.push(newItem);
+        }
+      }
+    }
 
     // Revenues search
-    // for (const pattern of revenuesPatterns) {
-    //   for (const row of revenues.data) {
-    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
+    for (const row of revenues?.data) {
+      // const isMatch = Object.values(row).some((value) => activitiesPatterns.test(value.toString()));
 
-    //     if (isMatch) {
-    //       if (!uniqueIdsSet.has(row.id)) {
-    //         uniqueIdsSet.add(row.id);
+      const isMatch = revenuesPatterns.some((pattern) =>
+        Object.values(row).some((value) => pattern.test(value.toString().replace(/\s/g, "")))
+      );
 
-    //         const newItem = { sheet: revenues.sheetName, ...row };
-    //         matchingData.push(newItem);
-    //       }
-    //     }
-    //   }
-    // }
+      if (isMatch) {
+        if (!uniqueIdsSet.has(row.id)) {
+          uniqueIdsSet.add(row.id);
+
+          const newItem = { sheet: revenues.sheetName, ...row };
+          matchingData.push(newItem);
+        }
+      }
+    }
+
+    console.log("matchingData", matchingData);
 
     setSearchResult(matchingData.length > 0 ? matchingData : null);
+    setIsLoading(false);
   };
 
-  const prepareRegexPattern = (searchTerm) => {
-    // const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // const spacedSearchTerm = escapedSearchTerm.split("").join("\\s*");
-
-    // return new RegExp(`\\b${spacedSearchTerm}\\b`, "i");
-
-    // const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // const spacedSearchTerm = escapedSearchTerm
-    //   .split("")
-    //   .map((char) => (char === " " ? "\\s*" : char))
-    //   .join("");
-
-    // return new RegExp(`\\b${spacedSearchTerm}\\b`, "i");
-
-    // const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // const patternSegments = escapedSearchTerm
-    //   .split(/\s+/) // Split by whitespace
-    //   .map((segment) => `(?=.*${segment})`); // Positive lookahead for each segment
-
-    // const dynamicPattern = patternSegments.join("");
-
-    // return new RegExp(`^${dynamicPattern}.*$`, "i");
-
-    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(escapedSearchTerm.split(/\s+/).join("\\s*"), "i");
-
-    return pattern;
+  const prepareRegexPattern = (searchTerms) => {
+    const escapedTerms = searchTerms.map((term) => term.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"));
+    const patterns = escapedTerms.map((term) => new RegExp(term.replace(/\s/g, "\\s*"), "i"));
+    return patterns;
   };
 
   const handleFieldClick = (key, value, rowId) => {
@@ -379,12 +288,6 @@ const UploadRatios = () => {
     }
   };
 
-  useEffect(() => {
-    if (netPosition || activities || balanceSheet || revenues) {
-      handleSearch();
-    }
-  }, [netPosition, activities, balanceSheet, revenues]);
-
   return (
     <div className="flex flex-col items-center justify-center px-5">
       <form className="mt-10 w-[300px] flex flex-col items-center justify-center">
@@ -427,6 +330,8 @@ const UploadRatios = () => {
           </button>
         </div>
       </form>
+
+      {isLoading && <div className="mt-20 text-lg text-white">Loading...</div>}
 
       {/* {true && (
         <form
