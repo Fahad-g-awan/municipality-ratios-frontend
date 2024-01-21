@@ -68,6 +68,10 @@ const SelectedRowsComp = ({ selectedRows }) => {
     <div className="text-gray-200 mb-10 w-full">
       <h3 className="font-semibold mb-3">Selected Rows:</h3>
 
+      <ul className="text-white text-[12px] mb-3 list-disc list-inside">
+        <li>Please review the data before submitting.</li>
+      </ul>
+
       <div className="bg-gray-600 rounded p-2 flex flex-col gap-1 cursor-default">
         {selectedRows.map((result) => (
           <div

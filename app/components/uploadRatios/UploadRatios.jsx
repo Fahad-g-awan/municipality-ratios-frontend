@@ -362,13 +362,13 @@ const UploadRatios = () => {
       {searchResult && (
         <div className="text-gray-200 mb-10 w-full">
           <h3 className="font-semibold">Search results from all sheets:</h3>
-          <h3 className="text-white text-[12px] mb-3">
+          <ul className="text-white text-[12px] mb-3 list-disc list-inside">
             <li>Click on sheet name to select the row.</li>
             <li>
               Click on the fields to add them and order of the fields depends on the order of
               selecion of fields
             </li>
-          </h3>
+          </ul>
 
           <div className="bg-gray-600 rounded p-2 flex flex-col gap-1">
             {searchResult.map((result) => (
