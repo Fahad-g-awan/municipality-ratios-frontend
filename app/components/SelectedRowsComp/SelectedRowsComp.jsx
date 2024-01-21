@@ -49,19 +49,27 @@ const SelectedRowsComp = ({ selectedRows }) => {
     setEditRowId(null);
   };
 
-  const handleSubmitData = () => {
+  const handleSubmitData = async () => {
     setIsLoading(true);
     console.log("selectedRows", selectedRows);
 
-    setTimeout(() => {
+    try {
+      await new Promise((resolve, reject) => {
+        setTimeout(() => {
+          setIsLoading(false);
+          resolve();
+        }, 2000);
+      });
+
+      setIsDataSubmited(true);
+
+      setTimeout(() => {
+        setIsDataSubmited(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error:", error);
       setIsLoading(false);
-    }, 2000);
-
-    setIsDataSubmited(true);
-
-    setTimeout(() => {
-      setIsDataSubmited(false);
-    }, 2000);
+    }
   };
 
   return (
