@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import * as XLSX from "xlsx";
 import SelectedRowsComp from "../SelectedRowsComp/SelectedRowsComp";
@@ -9,10 +9,10 @@ import { MdCloudUpload } from "react-icons/md";
 const UploadRatios = () => {
   const [excelFile, setExcelFile] = useState(null);
   const [extractedData, setExtractedData] = useState([]);
-  const [netPosition, setNetPosition] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [balanceSheet, setBalanceSheet] = useState([]);
-  const [revenues, setRevenues] = useState([]);
+  const [netPosition, setNetPosition] = useState(null);
+  const [activities, setActivities] = useState(null);
+  const [balanceSheet, setBalanceSheet] = useState(null);
+  const [revenues, setRevenues] = useState(null);
   // const [searchTerm, setSearchTerm] = useState("");
   const [searchResult, setSearchResult] = useState(null);
   const [selectedRowId, setSelectedRowId] = useState(null);
@@ -26,7 +26,7 @@ const UploadRatios = () => {
     setExcelFile(selectedFile);
   };
 
-  const handleExcelFileData = () => {
+  const handleExcelFileData = async () => {
     if (excelFile) {
       const reader = new FileReader();
 
@@ -35,7 +35,6 @@ const UploadRatios = () => {
         const workbook = XLSX.read(binaryString, { type: "binary" });
 
         // Extract data from all sheets
-        const allSheetData = [];
 
         workbook.SheetNames.forEach((sheetName) => {
           const sheet = workbook.Sheets[sheetName];
@@ -47,33 +46,30 @@ const UploadRatios = () => {
           const header = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0];
           const jsonData = XLSX.utils.sheet_to_json(sheet, { header: header });
 
-          // allSheetData.push({ sheetName, data: jsonData });
-
-          // console.log("Extracted data:", jsonData);
+          let data = {};
+          data.sheetName = sheetName;
+          data.data = jsonData.map((row) => ({ id: uuidv4({ encoding: "base62" }), ...row }));
 
           switch (sheetName) {
             case "Net Position":
-              setNetPosition(jsonData);
+              setNetPosition(data);
               break;
             case "Activities":
-              setActivities(jsonData);
+              setActivities(data);
               break;
             case "Balance Sheet":
-              setBalanceSheet(jsonData);
+              setBalanceSheet(data);
               break;
             case "Revenues":
-              setRevenues(jsonData);
+              setRevenues(data);
               break;
           }
         });
-
-        // console.log("Extracted data:", allSheetData);
-        // setExtractedData(allSheetData);
       };
 
       reader.readAsBinaryString(excelFile);
 
-      handleSearch();
+      // handleSearch();
     } else {
       console.log("No file selected");
     }
@@ -90,96 +86,256 @@ const UploadRatios = () => {
         "Investments",
         "Total Liabilities",
         "Pension / Net Pension Liability",
+        "Net Pension Liability",
         "OPEB / Net OPEB Liability",
+        "Net OPEB Liability",
         "Unrestricted Net Position",
+        "Unrestricted",
       ],
-      Activities: ["Expenses"],
+      Activities: ["Expenses", "Total Primary Gov ernment", "Primary Government"],
       "Balance Sheet": [
         "Fund Balance-Committed",
         "Fund Balance-Assigned",
         "Fund Balance-Unassigned",
+        "Fund Balance Committed",
+        "Fund Balance Assigned",
+        "Fund Balance Unassigned",
+        "Committed",
+        "Assigned",
+        "Unassigned",
         "Total Fund Balances (Unrestricted Reserves)",
+        "Total Fund Balances",
+        "Unrestricted Reserves",
+        "Unrestricted",
       ],
       Revenues: [
         "Total Expenditures",
         "Total Revenues",
-        "Debt Service:  Principal retirement",
-        "Debt Service:  Interest",
+        "Debt Service: Principal retirement",
+        "Debt Service: Interest",
         "Debt Service: Other charges",
+        "Principal retirement",
+        "Interest",
+        "Interest and other charges",
+        "Other charges",
         "Intergovernmental Revenue: Federal",
         "Intergovernmental Revenue: State or Commonwealth",
+        "State or Commonwealth",
+        "Intergovernmental Revenue",
+        "Federal",
+        "State",
+        "Commonwealth",
       ],
     };
+    // const GLOSSARY = {
+    //   "Net Position": [
+    //     "cash",
+    //     "Investments",
+    //     "Total Liabilities",
+    //     "Pension / Net Pension Liability",
+    //     "OPEB / Net OPEB Liability",
+    //     "Unrestricted Net Position",
+    //   ],
+    //   Activities: ["Expenses"],
+    //   "Balance Sheet": [
+    //     "Fund Balance-Committed",
+    //     "Fund Balance-Assigned",
+    //     "Fund Balance-Unassigned",
+    //     "Total Fund Balances (Unrestricted Reserves)",
+    //   ],
+    //   Revenues: [
+    //     "Total Expenditures",
+    //     "Total Revenues",
+    //     "Debt Service:  Principal retirement",
+    //     "Debt Service:  Interest",
+    //     "Debt Service: Other charges",
+    //     "Intergovernmental Revenue: Federal",
+    //     "Intergovernmental Revenue: State or Commonwealth",
+    //   ],
+    // };
+
+    let matchingData = [];
 
     const netPositionTerms = GLOSSARY["Net Position"];
+    const activitiesTerms = GLOSSARY["Activities"];
+    const balanceSheetTerms = GLOSSARY["Balance Sheet"];
+    const revenuesTerms = GLOSSARY["Revenues"];
 
-    for (let searchTerm of netPositionTerms) {
-      let terms = searchTerm.split(" ");
+    const netPositionPatterns = netPositionTerms.map(prepareRegexPattern);
+    const activitiesPatterns = activitiesTerms.map(prepareRegexPattern);
+    const balanceSheetPatterns = balanceSheetTerms.map(prepareRegexPattern);
+    const revenuesPatterns = revenuesTerms.map(prepareRegexPattern);
 
-      for (let term of terms) {
-        if (term.toLowerCase() == "net") {
-          continue;
-        }
+    const uniqueIdsSet = new Set();
 
-        // console.log("term", term);
+    // Net position search
+    // for (let searchTerm of netPositionTerms) {
+    //   let rows = netPosition.data;
+    //   let sheetName = netPosition.sheetName;
 
-        for (let row of netPosition) {
-          // const rowString = Object.values(row).join(" ").toLowerCase();
-          // let isMatch = rowString.includes(searchTerm.toLowerCase());
+    //   const pattern = prepareRegexPattern(searchTerm);
 
-          let isMatch = Object.values(row).some((value) =>
-            value.toString().toLowerCase().includes(term.toLowerCase())
-          );
+    //   for (let row of rows) {
+    //     let isMatch = Object.values(row).some((value) => {
+    //       return pattern.test(value);
+    //     });
 
-          if (isMatch) {
-            // item.id = uuidv4({ encoding: "base62" });
-            // const newItem = { sheet: sheetName, ...item };
-            console.log("matched rows:", row);
-            // matchingData.push(newItem);
-          }
-        }
-      }
-    }
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
 
-    // if (searchTerm) {
-    //   const matchingData = [];
-
-    //   // Iterate through each sheet's data
-    //   for (const sheetData of extractedData) {
-    //     const sheetName = sheetData.sheetName;
-
-    //     for (const item of sheetData.data) {
-    //       const isMatch = Object.values(item).some((value) =>
-    //         value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    //       );
-
-    //       if (isMatch) {
-    //         item.id = uuidv4({ encoding: "base62" });
-    //         const newItem = { sheet: sheetName, ...item };
-
+    //         const newItem = { sheet: sheetName, ...row };
     //         matchingData.push(newItem);
     //       }
     //     }
     //   }
-
-    //   console.log("matchingData", matchingData);
-
-    //   // Update the search result state
-    //   setSearchResult(matchingData.length > 0 ? matchingData : null);
-    // } else {
-    //   console.log("No search term added");
     // }
+    // for (const pattern of netPositionPatterns) {
+    //   for (const row of netPosition.data) {
+    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
+
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
+
+    //         const newItem = { sheet: netPosition.sheetName, ...row };
+    //         matchingData.push(newItem);
+    //       }
+    //     }
+    //   }
+    // }
+
+    // Activities search
+    // for (let searchTerm of activitiesTerms) {
+    //   let rows = activities.data;
+
+    //   let sheetName = activities.sheetName;
+
+    //   const pattern = prepareRegexPattern(searchTerm);
+
+    //   for (let row of rows) {
+    //     let isMatch = Object.values(row).some((value) => {
+    //       return pattern.test(value);
+    //     });
+
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
+
+    //         const newItem = { sheet: sheetName, ...row };
+    //         matchingData.push(newItem);
+    //       }
+    //     }
+    //   }
+    // }
+    // for (const pattern of activitiesPatterns) {
+    //   for (const row of activities.data) {
+    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
+
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
+
+    //         const newItem = { sheet: activities.sheetName, ...row };
+    //         matchingData.push(newItem);
+    //       }
+    //     }
+    //   }
+    // }
+
+    // Balance sheet search
+    // for (let searchTerm of balanceSheetTerms) {
+    //   let rows = activities.data;
+    //   console.log("searchTerm", searchTerm);
+
+    //   let sheetName = balanceSheet.sheetName;
+
+    //   const pattern = prepareRegexPattern(searchTerm);
+
+    //   for (let row of rows) {
+    //     // console.log("row", row);
+    //     let isMatch = Object.values(row).some((value) => {
+    //       return pattern.test(value);
+    //     });
+
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
+
+    //         const newItem = { sheet: sheetName, ...row };
+    //         matchingData.push(newItem);
+    //       }
+    //     }
+    //   }
+    // }
+    // for (const pattern of balanceSheetPatterns) {
+    //   for (const row of balanceSheet.data) {
+    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
+
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
+
+    //         const newItem = { sheet: balanceSheet.sheetName, ...row };
+    //         matchingData.push(newItem);
+    //       }
+    //     }
+    //   }
+    // }
+
+    // Revenues search
+    // for (const pattern of revenuesPatterns) {
+    //   for (const row of revenues.data) {
+    //     const isMatch = Object.values(row).some((value) => pattern.test(value));
+
+    //     if (isMatch) {
+    //       if (!uniqueIdsSet.has(row.id)) {
+    //         uniqueIdsSet.add(row.id);
+
+    //         const newItem = { sheet: revenues.sheetName, ...row };
+    //         matchingData.push(newItem);
+    //       }
+    //     }
+    //   }
+    // }
+
+    setSearchResult(matchingData.length > 0 ? matchingData : null);
+  };
+
+  const prepareRegexPattern = (searchTerm) => {
+    // const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // const spacedSearchTerm = escapedSearchTerm.split("").join("\\s*");
+
+    // return new RegExp(`\\b${spacedSearchTerm}\\b`, "i");
+
+    // const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // const spacedSearchTerm = escapedSearchTerm
+    //   .split("")
+    //   .map((char) => (char === " " ? "\\s*" : char))
+    //   .join("");
+
+    // return new RegExp(`\\b${spacedSearchTerm}\\b`, "i");
+
+    // const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // const patternSegments = escapedSearchTerm
+    //   .split(/\s+/) // Split by whitespace
+    //   .map((segment) => `(?=.*${segment})`); // Positive lookahead for each segment
+
+    // const dynamicPattern = patternSegments.join("");
+
+    // return new RegExp(`^${dynamicPattern}.*$`, "i");
+
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(escapedSearchTerm.split(/\s+/).join("\\s*"), "i");
+
+    return pattern;
   };
 
   const handleFieldClick = (key, value, rowId) => {
     if (key === "sheet" && rowId) {
-      console.log("row selcted rowId", rowId);
-
       setSelectedRowId(rowId);
       setSelectedRowIdArray([...selectedRowIdArray, rowId]);
     } else if (rowId === selectedRowId && key !== "id") {
-      console.log(`Clicked on field: ${key}, \nvalue: ${value}`);
-
       if (Object.keys(selectedFeilds).includes(key)) {
         return;
       } else if (value == "") {
@@ -188,26 +344,30 @@ const UploadRatios = () => {
         setSelectedFeilds({ ...selectedFeilds, [key]: value });
       }
     }
-
-    console.log("selectedFeilds", selectedFeilds);
   };
 
   const handleSingleRowSelection = (rowId) => {
     let newSelectedRowIdArray;
 
     if (Object.keys(selectedFeilds).length > 0) {
-      let newRow = selectedRows;
+      let newRows = selectedRows;
       selectedFeilds.id = selectedRowId;
-      newRow.push(selectedFeilds);
+      newRows.push(selectedFeilds);
 
-      console.log("newRow", newRow);
-      setSelectedRows(newRow);
+      setSelectedRows(newRows);
       setSelectedFeilds({});
     } else {
       newSelectedRowIdArray = selectedRowIdArray.filter((id) => id !== rowId);
       setSelectedRowIdArray(newSelectedRowIdArray);
     }
 
+    setSelectedRowId(null);
+  };
+
+  const handleCancelSelection = (rowId) => {
+    let newSelectedRowIdArray = selectedRowIdArray.filter((id) => id !== rowId);
+    setSelectedRowIdArray(newSelectedRowIdArray);
+    setSelectedFeilds({});
     setSelectedRowId(null);
   };
 
@@ -218,6 +378,12 @@ const UploadRatios = () => {
       return fileName;
     }
   };
+
+  useEffect(() => {
+    if (netPosition || activities || balanceSheet || revenues) {
+      handleSearch();
+    }
+  }, [netPosition, activities, balanceSheet, revenues]);
 
   return (
     <div className="flex flex-col items-center justify-center px-5">
@@ -331,12 +497,20 @@ const UploadRatios = () => {
                 </div>
 
                 {selectedRowId == result.id && (
-                  <button
-                    onClick={() => handleSingleRowSelection(result.id)}
-                    className="bg-gray-400 hover:bg-gray-300 mt-2 px-5 py-2 rounded font-semibold text-gray-700 transition-all duration-300"
-                  >
-                    Done
-                  </button>
+                  <div className="space-x-2">
+                    <button
+                      onClick={() => handleSingleRowSelection(result.id)}
+                      className="bg-gray-400 hover:bg-gray-300 mt-2 px-5 py-2 rounded font-semibold text-gray-700 transition-all duration-300"
+                    >
+                      Done
+                    </button>
+                    <button
+                      onClick={() => handleCancelSelection(result.id)}
+                      className="bg-gray-400 hover:bg-gray-300 mt-2 px-5 py-2 rounded font-semibold text-gray-700 transition-all duration-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -350,3 +524,11 @@ const UploadRatios = () => {
 };
 
 export default UploadRatios;
+
+// let searchString = searchTerm.replace(/\s/g, "");
+// let pattern = new RegExp(searchString.split("").join("\\s*"));
+
+// This one works
+// const pattern = new RegExp(`\\b${searchTerm.split("").join("\\s*")}\\b`, "i");
+
+// value.toString().toLowerCase().includes(searchTerm.toLowerCase());

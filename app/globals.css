@@ -22,7 +22,6 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-/* Optional: Style for scrollbar (if needed) */
 .rows::-webkit-scrollbar {
   height: 10px;
 }
