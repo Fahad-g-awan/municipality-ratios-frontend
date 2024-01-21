@@ -7,6 +7,8 @@ const SelectedRowsComp = ({ selectedRows }) => {
   const [editRowId, setEditRowId] = useState(null);
   const [selectedRow, setSelectedRow] = useState();
   const [headerValue, setHeaderValue] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDataSubmited, setIsDataSubmited] = useState(false);
   const [fieldValue, setFieldValue] = useState({});
 
   const handleEditBtn = (rowId) => {
@@ -20,7 +22,9 @@ const SelectedRowsComp = ({ selectedRows }) => {
 
         Object.keys(selectedRows[i]).forEach((rowKey) => {
           if (headerValue.hasOwnProperty(rowKey)) {
-            newRow[headerValue[rowKey]] = selectedRows[i][rowKey];
+            let tempVal = selectedRows[i][rowKey];
+            delete selectedRows[i][rowKey];
+            newRow[headerValue[rowKey]] = tempVal;
           } else {
             newRow[rowKey] = selectedRows[i][rowKey];
           }
@@ -43,6 +47,21 @@ const SelectedRowsComp = ({ selectedRows }) => {
     setHeaderValue({});
     setFieldValue({});
     setEditRowId(null);
+  };
+
+  const handleSubmitData = () => {
+    setIsLoading(true);
+    console.log("selectedRows", selectedRows);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    setIsDataSubmited(true);
+
+    setTimeout(() => {
+      setIsDataSubmited(false);
+    }, 2000);
   };
 
   return (
@@ -114,6 +133,21 @@ const SelectedRowsComp = ({ selectedRows }) => {
             )}
           </div>
         ))}
+      </div>
+
+      <div className="mt-3">
+        <button
+          onClick={handleSubmitData}
+          className="bg-gray-400 hover:bg-gray-300 mt-2 px-5 py-2 rounded font-semibold text-gray-700 transition-all duration-300"
+        >
+          {isLoading ? "Please wait..." : "Submit Data"}
+        </button>
+
+        {isDataSubmited && (
+          <div className="mt-2 p-4 text-white text-center bg-green-600">
+            Data Submitted successfully.
+          </div>
+        )}
       </div>
     </div>
   );
