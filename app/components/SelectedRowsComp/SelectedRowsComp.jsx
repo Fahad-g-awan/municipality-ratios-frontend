@@ -64,7 +64,7 @@ const SelectedRowsComp = ({ selectedRows }) => {
 
                   return editRowId === result.id ? (
                     <div
-                      className={`p-1 transition-all duration-300 rounded space-y-2`}
+                      className={`p-1 flex flex-col transition-all duration-300 rounded space-y-2`}
                       key={inputKey}
                     >
                       <input
